@@ -1,4 +1,4 @@
-var dom = new (function dom(elements)
+var dom = new (function Dom(elements)
 {
   this.from = function(e)
   {
@@ -13,7 +13,7 @@ var dom = new (function dom(elements)
       return item == window.document || item instanceof Element;
     });
 
-    return new dom(list);
+    return new Dom(list);
   };
 
   this.getCss = function(property)
@@ -156,7 +156,12 @@ var dom = new (function dom(elements)
     for(var i in elements)
       item instanceof HTMLElement
       ? elements[i].insertBefore(item, elements[i].childNodes[0])
-      : elements[i].insertAdjacentHTML('afterbegin', item);
+      : item instanceof Dom
+        ? item.get().forEach(function(item)
+          {
+            elements[i].insertBefore(item, elements[i].childNodes[0]);
+          })
+        : elements[i].insertAdjacentHTML('afterbegin', item);
 
     return this;
   };
@@ -166,7 +171,12 @@ var dom = new (function dom(elements)
     for(var i in elements)
       item instanceof HTMLElement
       ? elements[i].appendChild(item)
-      : elements[i].insertAdjacentHTML('beforeend', item);
+      : item instanceof Dom
+        ? item.get().forEach(function(item)
+          {
+            elements[i].appendChild(item);
+          })
+        : elements[i].insertAdjacentHTML('beforeend', item);
 
     return this;
   };
@@ -441,6 +451,30 @@ var dom = new (function dom(elements)
     }
   };
 
+  this.getWidth = function()
+  {
+    for(var i in elements)
+      return {
+        client : elements[i].clientWidth,
+        offset : elements[i].offsetWidth,
+        scroll : elements[i].scrollWidth
+      }
+
+    return {}
+  };
+
+  this.getHeight = function()
+  {
+    for(var i in elements)
+      return {
+        client : elements[i].clientHeight,
+        offset : elements[i].offsetHeight,
+        scroll : elements[i].scrollHeight
+      }
+
+    return {}
+  };
+
   this.setScroll = function(point)
   {
     for(var i in elements)
@@ -470,6 +504,16 @@ var dom = new (function dom(elements)
   {
     if(!elements.length)
       return false;
+
+    if(selector instanceof Dom)
+      return selector.get().length == this.get().length
+          && selector.get().every(function(item)
+             {
+               return ~this.get().indexOf(item);
+             }.bind(this));
+
+    if(selector instanceof HTMLElement)
+      return ~this.get().indexOf(selector);
 
     var matches =
       ( elements[0].matches
