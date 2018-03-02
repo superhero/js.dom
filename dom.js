@@ -29,7 +29,7 @@ var dom = new (function Dom(elements)
     property = property.toLowerCase().split('-').map(function(value, i)
     {
       if(i > 0 && value.length)
-        value[0] = value[0].toUpperCase();
+        value = value.charAt(0).toUpperCase() + value.slice(1);
 
       return value;
     }).join('');
