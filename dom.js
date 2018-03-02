@@ -353,7 +353,7 @@ var dom = new (function dom(elements)
               ? true
               : recur.call(this, child.parentNode))
             : false;
-          }.call(this, elements[i])
+          }.call(this, elements[i]))
         return false;
 
     return !!elements.length;
