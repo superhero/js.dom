@@ -238,7 +238,7 @@ var dom = new (function Dom(elements)
   this.on = function(eventName, observer)
   {
     for(var i in elements)
-      elements[i].addEventListener(eventName, observer);
+      elements[i].addEventListener(eventName, observer.bind(elements[i]);
 
     return this;
   };
