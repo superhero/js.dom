@@ -243,7 +243,6 @@ var dom = new (function Dom(elements)
     return this;
   };
 
-  // @experimental
   this.trigger = function(eventName)
   {
     var e; // The custom event that will be created
@@ -263,11 +262,13 @@ var dom = new (function Dom(elements)
 
     if(document.createEvent)
     {
-      element.dispatchEvent(e);
+      for(var i in elements)
+        elements[i].dispatchEvent(e);
     }
     else
     {
-      element.fireEvent('on' + e.eventName, e);
+      for(var i in elements)
+        elements[i].fireEvent('on' + e.eventName, e);
     }
   };
 
