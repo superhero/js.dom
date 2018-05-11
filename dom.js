@@ -315,9 +315,14 @@ var dom = new (function Dom(elements)
 
   this.toggleClass = function(className)
   {
-      this.hasClass(className)
-    ? this.removeClass(className)
-    : this.addClass(className);
+    for(var i in elements)
+    {
+      var element = this.from(elements[i]);
+
+      element.hasClass(className)
+      ? element.removeClass(className)
+      : element.addClass(className);
+    }
 
     return this;
   };
