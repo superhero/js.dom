@@ -547,6 +547,17 @@ var dom = new (function Dom(elements)
     return this.from(filteredElements);
   };
 
+  this.exclude = function(selector)
+  {
+    var filteredElements = [];
+
+    for(var i in elements)
+      if(!this.from(elements[i]).is(selector))
+        filteredElements.push(elements[i]);
+
+    return this.from(filteredElements);
+  };
+
   this.toString = function()
   {
     var out = '';
