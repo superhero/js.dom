@@ -289,7 +289,7 @@ var dom = new (function Dom(elements)
       list = list.filter(function(value){return value != ''});
 
       if(~list.indexOf(className))
-        return this;
+        continue
 
       list.push(className);
       elements[i].className = list.join(' ');
