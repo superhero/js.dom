@@ -40,12 +40,6 @@ var dom = new (function Dom(elements)
     return this;
   };
 
-  this.getHeight = function()
-  {
-    for(var i in elements)
-      return elements[i].innerHeight;
-  };
-
   this.focus = function()
   {
     for(var i in elements)
