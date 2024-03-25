@@ -40,6 +40,12 @@ var dom = new (function Dom(elements)
     return this;
   };
 
+  this.getHeight = function()
+  {
+    for(var i in elements)
+      return elements[i].innerHeight;
+  };
+
   this.focus = function()
   {
     for(var i in elements)
@@ -229,10 +235,11 @@ var dom = new (function Dom(elements)
     return this;
   };
 
-  this.on = function(eventName, observer)
+  this.on = function(eventNames, observer)
   {
-    for(var i in elements)
-      elements[i].addEventListener(eventName, observer.bind(elements[i]));
+    for(const eventName of eventNames.split(',').map((name) => name.trim()))
+      for(var i in elements)
+        elements[i].addEventListener(eventName, observer.bind(elements[i]));
 
     return this;
   };
