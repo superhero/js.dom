@@ -220,6 +220,12 @@ var dom = new (function Dom(elements)
       return elements[i].getAttribute(attr);
   };
 
+  this.hasAttribute = function(attr)
+  {
+    for(var i in elements)
+      return elements[i].hasAttribute(attr);
+  };
+
   this.clear = function()
   {
     for(var i in elements)
