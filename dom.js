@@ -1,571 +1,879 @@
-var dom = new (function Dom(elements)
+class Dom
 {
-  this.from = function(e)
+  constructor(element)
   {
-    var list = e instanceof NodeList
-             ? Array.prototype.slice.call(e)
-             : e instanceof Array
-               ? e
-               : [e];
-
-    list = list.filter(function(item)
+    if(element instanceof Dom)
     {
-      return item == window.document || item instanceof Element;
-    });
-
-    return new Dom(list);
-  };
-
-  this.getCss = function(property)
-  {
-    for(var i in elements)
-      return window
-        .getComputedStyle(elements[i], null)
-        .getPropertyValue(property);
-  };
-
-  this.setCss = function(property, value)
-  {
-    property = property.toLowerCase().split('-').map(function(value, i)
-    {
-      if(i > 0 && value.length)
-        value = value.charAt(0).toUpperCase() + value.slice(1);
-
-      return value;
-    }).join('');
-
-    for(var i in elements)
-      elements[i].style[property] = value;
-
-    return this;
-  };
-
-  this.focus = function()
-  {
-    for(var i in elements)
-      elements[i].focus();
-
-    return this;
-  };
-
-  this.select = function(selector, root)
-  {
-    var list = [];
-    for(var i in elements)
-    {
-      var nodeList = (root || elements[i]).querySelectorAll(selector);
-      list = list.concat(Array.prototype.slice.call(nodeList));
+      this.elements = [...element.elements]
     }
-
-    return this.from(list);
-  };
-
-  this.parent = function(selector, matchThis)
-  {
-    for(var i in elements)
+    else if(element instanceof NodeList)
     {
-      if(!selector)
-        return this.from(elements[i].parentNode);
-
-      if(matchThis && this.is(selector))
-        return this.from(elements[i]);
-
-      return function recur(child)
-      {
-        if(!child.parentNode)
-          return false;
-
-        var parent = this.from(child.parentNode);
-        return parent.is(selector)
-        ? parent
-        : recur.call(this, child.parentNode);
-      }.call(this, elements[i]);
+      this.elements = Array.from(element)
     }
-  };
-
-  this.getSiblings = function(selector)
-  {
-    var siblings = [];
-
-    for(var i in elements)
+    else if(element instanceof Element)
     {
-      var sibling = elements[i].parentNode.firstChild;
-
-      do
+      this.elements = [element]
+    }
+    else if(element === window.document)
+    {
+      this.elements = [element]
+    }
+    else if(false === !!element)
+    {
+      const error = new Error('Invalid argument: element is null or undefined')
+      error.cause = 'Expected element to be an instance of HTMLElement, NodeList, Array of HTMLElements or Dom'
+      error.code  = 'E_DOM_CONSTRUCTOR_INVALID_ARGUMENT'
+      throw error
+    }
+    else
+    {
+      if(element instanceof Set)
       {
-        if(!~elements.indexOf(sibling))
-          if(!selector || this.from(sibling).is(selector))
-            siblings.push(sibling);
+        element = Array.from(element)
       }
-      while (sibling = sibling.nextSibling);
+
+      if(element instanceof Array)
+      {
+        element = element.map(item => item instanceof Dom ? item.elements : item).flat()
+      }
+      else
+      {
+        element = [element]
+      }
+
+      this.elements = element.filter(item => item === window.document 
+                                          || item instanceof Element)
+    }
+  }
+
+  from(element)
+  {
+    return new Dom(element)
+  }
+
+  find(selector, root)
+  {
+    return this.select(selector, root)
+  }
+
+  select(selector, root)
+  {
+    const list = []
+    
+    for(const element of this.elements)
+    {
+      const nodeList = (root || element).querySelectorAll(selector)
+      list.push(...Array.from(nodeList))
     }
 
-    return this.from(siblings);
-  };
+    return this.from(list)
+  }
 
-  this.nextSibling = function(selector)
+  css(property, value)
   {
-    function walker(selector, element)
+    return value === undefined
+    ? this.getCss(property)
+    : this.setCss(property, value)
+  }
+
+  getCss(property)
+  {
+    for(const element of this.elements)
+      return window
+        .getComputedStyle(element, null)
+        .getPropertyValue(property)
+  }
+
+  setCss(property, value)
+  {
+    property = property.toLowerCase().split('-').map((segment, i) =>
+    {
+      if(i > 0 && segment.length)
+        segment[0] = segment[0].toUpperCase()
+
+      return segment
+    }).join('')
+
+    for(const element of this.elements)
+      element.style[property] = value
+
+    return this
+  }
+
+  getHeight()
+  {
+    for(const element of this.elements)
+      return element.innerHeight
+  }
+
+  focus()
+  {
+    for(const element of this.elements)
+      element.focus()
+
+    return this
+  }
+
+  parent(selector, matchThis)
+  {
+    const walk = element =>
+    {
+      if(false === !!element.parentNode)
+        return false
+
+      return this.from(element.parentNode).is(selector)
+      ? element.parentNode
+      : walk(element.parentNode)
+    }
+
+    const collection = []
+
+    for(const element of this.elements)
+    {
+      if(false === !!selector)
+      {
+        collection.push(element.parentNode)
+      }
+      else if(matchThis && this.is(selector))
+      {
+        collection.push(element)
+      }
+      else
+      {
+        const parent = walk(element)
+        parent && collection.push(parent)
+      }
+    }
+
+    return this.from(collection)
+  }
+
+  siblings(selector)
+  {
+    return this.getSiblings(selector)
+  }
+
+  getSiblings(selector)
+  {
+    const siblings = []
+
+    for(const element of this.elements)
+    {
+      let sibling
+
+      for(sibling = element.parentNode.firstChild; sibling; sibling = element.nextSibling)
+      {
+        if(false === this.elements.includes(sibling))
+          if(selector && this.from(sibling).is(selector))
+            siblings.push(sibling)
+      }
+    }
+
+    return this.from(siblings)
+  }
+
+  next(selector)
+  {
+    return this.nextSiblings(selector)
+  }
+
+  nextSiblings(selector)
+  {
+    const walk = element =>
     {
       if(element.nextSibling)
       {
-        var sibling = this.from(element.nextSibling);
-        return sibling.is(selector)
-        ? sibling
-        : walker.call(this, selector, element.nextSibling);
+        return this.from(element.nextSibling).is(selector)
+        ? element.nextSibling
+        : walk(element.nextSibling)
       }
     }
 
-    for(var i in elements)
-      return walker.call(this, selector, elements[i]);
-  };
+    const nextSiblings = []
 
-  this.previousSibling = function(selector)
+    for(const element of this.elements)
+    {
+      const sibling = walk(element)
+      sibling && nextSiblings.push(sibling)
+    }
+
+    return this.from(nextSiblings)
+  }
+
+  previous(selector)
   {
-    function walker(selector, element)
+    return this.previousSiblings(selector)
+  }
+
+  previousSiblings(selector)
+  {
+    const walk = element =>
     {
       if(element.previousSibling)
       {
-        var sibling = this.from(element.previousSibling);
-        return sibling.is(selector)
-        ? sibling
-        : walker.call(this, selector, element.previousSibling);
+        return this.from(element.previousSibling).is(selector)
+        ? element.previousSibling
+        : walk(element.previousSibling)
       }
     }
 
-    for(var i in elements)
-      return walker.call(this, selector, elements[i]);
-  };
+    const previousSiblings = []
 
-  this.before = function(html)
+    for(const element of this.elements)
+    {
+      const sibling = walk(element)
+      sibling && previousSiblings.push(sibling)
+    }
+
+    return this.from(previousSiblings)
+  }
+
+  before(item)
   {
-    for(var i in elements)
-      elements[i].insertAdjacentHTML('beforebegin', html);
+    for(const element of this.elements)
+    {
+      if(false === element.parentNode)
+      {
+        const error = new Error('Invalid operation: element has no parent node')
+        error.cause = 'Expected the element to have a parent node in order to insert content before it'
+        error.code  = 'E_DOM_BEFORE_NO_PARENT_NODE'
+        throw error
+      }
 
-    return this;
-  };
-
-  this.prepend = function(item)
-  {
-    for(var i in elements)
       item instanceof HTMLElement
-      ? elements[i].insertBefore(item, elements[i].childNodes[0])
+      ? element.before(item)
       : item instanceof Dom
-        ? item.get().forEach(function(item)
-          {
-            elements[i].insertBefore(item, elements[i].childNodes[0]);
-          })
-        : elements[i].insertAdjacentHTML('afterbegin', item);
+        ? item.elements.forEach(item => element.before(item))
+        : element.insertAdjacentHTML('beforebegin', item)
+    }
 
-    return this;
-  };
+    return this
+  }
 
-  this.append = function(item)
+  after(item)
   {
-    for(var i in elements)
+    for(const element of this.elements)
+    {
+      if(false === element.parentNode)
+      {
+        const error = new Error('Invalid operation: element has no parent node')
+        error.cause = 'Expected the element to have a parent node in order to insert content after it'
+        error.code  = 'E_DOM_AFTER_NO_PARENT_NODE'
+        throw error
+      }
+      
       item instanceof HTMLElement
-      ? elements[i].appendChild(item)
+      ? element.after(item)
       : item instanceof Dom
-        ? item.get().forEach(function(item)
-          {
-            elements[i].appendChild(item);
-          })
-        : elements[i].insertAdjacentHTML('beforeend', item);
+        ? item.elements.forEach(item => element.after(item))
+        : element.insertAdjacentHTML('afterend', item)
+    }
 
-    return this;
-  };
+    return this
+  }
 
-  this.after = function(html)
+  prepend(item)
   {
-    for(var i in elements)
-      elements[i].insertAdjacentHTML('afterend', html);
+    for(const element of this.elements)
+      item instanceof HTMLElement
+      ? element.insertBefore(item)
+      : item instanceof Dom
+        ? item.elements.forEach(item => element.insertBefore(item))
+        : element.insertAdjacentHTML('afterbegin', item)
 
-    return this;
-  };
+    return this
+  }
 
-  this.new = function(s)
+  append(item)
   {
-    return this.from(document.createElement(s))
-  };
+    for(const element of this.elements)
+      item instanceof HTMLElement
+      ? element.appendChild(item)
+      : item instanceof Dom
+        ? item.elements.forEach(item => element.appendChild(item))
+        : element.insertAdjacentHTML('beforeend', item)
 
-  this.remove = function()
+    return this
+  }
+
+  create(tagName)
   {
-    for(var i in elements)
-      elements[i].parentNode.removeChild(elements[i]);
+    return this.createElement(tagName)
+  }
 
-    elements = [];
-
-    return this;
-  };
-
-  this.removeAttribute = function(name)
+  createElement(tagName)
   {
-    for(var i in elements)
-      elements[i].removeAttribute(name);
+    return this.from(document.createElement(tagName))
+  }
 
-    return this;
-  };
-
-  this.setAttribute = function(name, value)
+  attr(name, value)
   {
-    for(var i in elements)
-      elements[i].setAttribute(name, value);
+    return this.attribute(name, value)
+  }
 
-    return this;
-  };
-
-  this.getAttribute = function(attr)
+  attribute(name, value)
   {
-    for(var i in elements)
-      return elements[i].getAttribute(attr);
-  };
+    switch(value)
+    {
+      case null      : return this.removeAttribute(name)
+      case undefined : return this.getAttribute(name)
+      default        : return this.setAttribute(name, value)
+    }
+  }
 
-  this.hasAttribute = function(attr)
+  deleteAttribute(name)
   {
-    for(var i in elements)
-      return elements[i].hasAttribute(attr);
-  };
+    return this.removeAttribute(name)
+  }
 
-  this.clear = function()
+  removeAttribute(name)
   {
-    for(var i in elements)
-      while(elements[i].childNodes.length)
-        elements[i].removeChild(elements[i].childNodes[0]);
+    for(const element of this.elements)
+      element.removeAttribute(name)
 
-    return this;
-  };
+    return this
+  }
 
-  this.on = function(eventNames, observer)
+  setAttribute(name, value)
   {
-    for(const eventName of eventNames.split(',').map((name) => name.trim()))
-      for(var i in elements)
-        elements[i].addEventListener(eventName, observer.bind(elements[i]));
+    for(const element of this.elements)
+      element.setAttribute(name, value)
 
-    return this;
-  };
+    return this
+  }
 
-  this.trigger = function(eventName)
+  getAttribute(attr)
   {
-    var e; // The custom event that will be created
+    for(const element of this.elements)
+      if(element.hasAttribute(attr))
+        return element.getAttribute(attr)
+  }
+
+  hasAttribute(attr)
+  {
+    for(const element of this.elements)
+      return element.hasAttribute(attr)
+  }
+
+  clear()
+  {
+    for(const element of this.elements)
+      while(element.childNodes.length)
+        element.removeChild(element.childNodes[0])
+
+    return this
+  }
+
+  delete()
+  {
+    return this.remove()
+  }
+
+  remove()
+  {
+    this.parent().clear()
+    return this
+  }
+
+  on(eventName, observer)
+  {
+    for(const element of this.elements)
+      element.addEventListener(eventName, observer.bind(element))
+
+    return this
+  }
+
+  execute(eventName)
+  {
+    return this.trigger(eventName)
+  }
+
+  fireEvent(eventName)
+  {
+    return this.trigger(eventName)
+  }
+
+  dispatchEvent(eventName)
+  {
+    return this.trigger(eventName)
+  }
+
+  trigger(eventName)
+  {
+    return this.triggerEvent(eventName)
+  }
+
+  triggerEvent(eventName)
+  {
+    let event // The custom event that will be created
 
     if(document.createEvent)
     {
-      e = document.createEvent("HTMLEvents");
-      e.initEvent(eventName, true, true);
+      event = document.createEvent("HTMLEvents")
+      event.initEvent(eventName, true, true)
     }
     else
     {
-      e = document.createEventObject();
-      e.eventType = eventName;
+      event = document.createEventObject()
+      event.eventType = eventName
     }
 
-    e.eventName = eventName;
+    event.eventName = eventName
 
     if(document.createEvent)
     {
-      for(var i in elements)
-        elements[i].dispatchEvent(e);
+      for(const element of this.elements)
+        element.dispatchEvent(event)
     }
     else
     {
-      for(var i in elements)
-        elements[i].fireEvent('on' + e.eventName, e);
+      for(const element of this.elements)
+        element.fireEvent('on' + event.eventName, event)
     }
-  };
+  }
 
-  this.click = function()
+  click()
   {
-    for(var i in elements)
-      elements[i].click();
+    for(const element of this.elements)
+      element.click()
 
-    return this;
-  };
+    return this
+  }
 
-  this.addClass = function(className)
+  class(className)
   {
-    for(var i in elements)
+    return {
+      add    : this.addClass   .bind(this, className),
+      has    : this.hasClass   .bind(this, className),
+      delete : this.deleteClass.bind(this, className),
+      remove : this.removeClass.bind(this, className),
+      toggle : this.toggleClass.bind(this, className)
+    }
+  }
+
+  addClass(className)
+  {
+    for(const element of this.elements)
     {
-      var
-      list = (elements[i].className || '').split(' ');
-      list = list.filter(function(value){return value != ''});
+      const classNames = (element.className || '').split(' ').filter(value => value != '')
 
-      if(~list.indexOf(className))
+      if(classNames.includes(className))
         continue
 
-      list.push(className);
-      elements[i].className = list.join(' ');
+      classNames.push(className)
+      element.className = classNames.join(' ')
     }
 
-    return this;
-  };
+    return this
+  }
 
-  this.removeClass = function(className)
+  hasClass(className)
   {
-    for(var i in elements)
-    {
-      var
-      list  = elements[i].className.split(' '),
-      index = list.indexOf(className);
+    for(const element of this.elements)
+      if(element.className.split(' ').includes(className))
+        return true
 
-      ~index && list.splice(index, 1);
-      elements[i].className = list.join(' ');
+    return false
+  }
+
+  deleteClass(className)
+  {
+    return this.removeClass(className)
+  }
+
+  removeClass(className)
+  {
+    for(const element of this.elements)
+    {
+      const
+        list  = element.className.split(' '),
+        index = list.indexOf(className)
+
+      ~index && list.splice(index, 1)
+      element.className = list.join(' ')
     }
 
-    return this;
-  };
+    return this
+  }
 
-  this.toggleClass = function(className)
+  toggleClass(className)
   {
-    for(var i in elements)
+    for(const element of this.elements)
     {
-      var element = this.from(elements[i]);
-
+      element = this.from(element)
       element.hasClass(className)
       ? element.removeClass(className)
-      : element.addClass(className);
+      : element.addClass(className)
     }
 
-    return this;
-  };
+    return this
+  }
 
-  this.hasClass = function(className)
+  html(content)
   {
-    for(var i in elements)
-      return !!~elements[i].className.split(' ').indexOf(className);
-  };
+    return this.innerHTML(content)
+  }
 
-  this.getContent = function()
+  innerHTML(content)
   {
-    for(var i in elements)
-      return elements[i].innerHTML;
-  };
+    return this.content(content)
+  }
 
-  this.setContent = function(content)
+  content(content)
   {
-    for(var i in elements)
-      elements[i].innerHTML = content;
+    return undefined === content
+    ? this.getContent()
+    : this.setContent(content)
+  }
 
-     return this;
-  };
-
-  this.children = function()
+  getContent()
   {
-    var list = [];
-    for(var i in elements)
+    let content
+
+    for(const element of this.elements)
+      if(element.innerHTML)
+        content = element.innerHTML
+
+    return content
+  }
+
+  setContent(content)
+  {
+    for(const element of this.elements)
+      element.innerHTML = content
+
+     return this
+  }
+
+  children(children)
+  {
+    return undefined === children
+    ? this.getChildren()
+    : this.setChildren(children)
+  }
+
+  getChildren()
+  {
+    const list = []
+
+    for(const element of this.elements)
     {
-      var arrayList = Array.prototype.slice.call(elements[i].children);
-      list = list.concat(arrayList);
+      list.push(...Array.from(element.children))
     }
 
-    return this.from(list);
-  };
+    return this.from(list)
+  }
 
-  this.childOf = function(selector)
+  setChildren(children)
   {
-    for(var i in elements)
-      if(!function recur(child)
-          {
-            return child.parentNode
-            ? ( this.from(child.parentNode).is(selector)
-              ? true
-              : recur.call(this, child.parentNode))
-            : false;
-          }.call(this, elements[i]))
-        return false;
-
-    return !!elements.length;
-  };
-
-  this.get = function(i)
-  {
-    return i == undefined ? elements : elements[i];
-  };
-
-  this.valueMap = function()
-  {
-    var map = {};
-
-    for(var i in elements)
+    for(const element of this.elements)
     {
-      var
-      element = this.from(elements[i]),
-      name    = element.getAttribute('name') || element.getData('name');
+      element.innerHTML = ''
 
-      if((element.is('[type="radio"]') || element.is('[type="checkbox"]'))
-      && !element.get(0).checked)
-        continue;
+      children instanceof HTMLElement
+      ? element.appendChild(children)
+      : children instanceof Dom
+        ? children.elements.forEach(item => element.appendChild(item))
+        : element.insertAdjacentHTML('beforeend', children)
+    }
 
-      if(name != undefined)
+    return this
+  }
+
+  isChildOf(selector)
+  {
+    const walk = element => element.parentNode
+                            ? ( this.from(element.parentNode).is(selector)
+                              ? true
+                              : walk.call(this, element.parentNode))
+                            : false
+
+    for(const element of this.elements)
+      if(false === walk(element)) 
+        return false
+
+    return !!this.elements.length
+  }
+
+  check()
+  {
+    for (const element of this.elements)
+      if('checked' in element)
+        element.checked = true
+
+    return this
+  }
+
+  checked()
+  {
+    return this.isChecked()
+  }
+
+  isChecked()
+  {
+    for (const element of this.elements)
+      if(element.checked)
+        return true
+
+   return false
+  }
+
+  value(value)
+  {
+    return undefined === value
+    ? this.getValue()
+    : this.setValue(value)
+  }
+
+  getValue()
+  {
+    if(this.elements.length > 1)
+      return this.getValueMap()
+
+    for(const element of this.elements)
+      return 'value' in element
+                      ? element.value
+                      : element.innerHTML
+  }
+
+  getValueMap()
+  {
+    const map = {}
+
+    for(const element of this.elements)
+    {
+      const
+        domElement  = this.from(element),
+        name        = domElement.getAttribute('name') ?? domElement.getData('name')
+
+      if((domElement.is('[type="radio"]') || domElement.is('[type="checkbox"]'))
+      && false === domElement.isChecked())
+        continue
+
+      else if(name !== undefined)
       {
-        var value = 'value' in elements[i]
-          ? elements[i].value
-          : elements[i].innerHTML;
-
-        map[name] = map[name] === undefined
-         ? value
-         : [].concat(map[name], value);
+        const value = domElement.getValue()
+        map[name]   = undefined === map[name]
+                      ? value
+                      : [].concat(map[name], value)
       }
     }
 
-    return map;
-  };
+    return map
+  }
 
-  this.getValue = function()
+  setValue(value)
   {
-    for(var i in elements)
-      return elements[i].value;
-  };
+    for(const element of this.elements)
+      if('value' in element)
+        element.value = value
 
-  this.setValue = function(value)
+    return this
+  }
+
+  data(name, value)
   {
-    for(var i in elements)
-      elements[i].value = value;
+    return undefined === value
+    ? this.getData(name)
+    : this.setData(name, value)
+  }
 
-    return this;
-  };
-
-  this.hasData = function(name)
+  hasData(name)
   {
-    for(var i in elements)
-      return elements[i].dataset
-        ? name in elements[i].dataset
-        : elements[i].hasAttribute &&
-          elements[i].hasAttribute('data-' + name.replace(
-            /([a-zA-Z])(?=[A-Z])/g, '$1-').toLowerCase());
-  };
+    return undefined !== this.getData(name)
+  }
 
-  this.getData = function(name)
-  {
-    for(var i in elements)
-      return elements[i].dataset
-        ? elements[i].dataset[name]
-        : elements[i].getAttribute &&
-          elements[i].getAttribute('data-' + name.replace(
-            /([a-zA-Z])(?=[A-Z])/g, '$1-').toLowerCase());
-  };
+  static #_LETTER_FOLLOWED_BY_AN_UPPERCASE_LETTER = /([a-zA-Z])(?=[A-Z])/g
+  static paramCase = s => s.replace(Dom.#_LETTER_FOLLOWED_BY_AN_UPPERCASE_LETTER, '$1-').toLowerCase()
 
-  this.getOffset = function()
+  getData(name)
   {
-    for(var i in elements)
+    for(const element of this.elements)
     {
-      var offset =
+      const data = element.dataset
+      ? element.dataset[name]
+      : element.getAttribute 
+        && element.getAttribute('data-' + Dom.paramCase(name))
+
+      if(undefined !== data)
       {
-        top  : elements[i].offsetTop,
-        left : elements[i].offsetLeft
-      };
+        return data
+      }
+    } 
+  }
 
-      return offset;
-    }
-  };
-
-  this.getWidth = function()
+  setData(name, value)
   {
-    for(var i in elements)
+    for(const element of this.elements)
+      element.dataset
+        ? element.dataset[name] = value
+        : element.setAttribute 
+          && element.setAttribute('data-' + Dom.paramCase(name), value)
+
+    return this
+  }
+
+  offset()
+  {
+    return this.getOffset()
+  }
+
+  getOffset()
+  {
+    for(const element of this.elements)
+    {
       return {
-        client : elements[i].clientWidth,
-        offset : elements[i].offsetWidth,
-        scroll : elements[i].scrollWidth
+        top  : element.offsetTop,
+        left : element.offsetLeft
+      }
+    }
+  }
+
+  size()
+  {
+    const 
+      width  = this.getWidth(),
+      height = this.getHeight()
+
+    return { width, height }
+  }
+
+  width()
+  {
+    return this.getWidth()
+  }
+
+  getWidth()
+  {
+    for(const element of this.elements)
+      return {
+        client : element.clientWidth,
+        offset : element.offsetWidth,
+        scroll : element.scrollWidth
       }
 
     return {}
-  };
+  }
 
-  this.getHeight = function()
+  height()
   {
-    for(var i in elements)
+    return this.getHeight()
+  }
+
+  getHeight()
+  {
+    for(const element of this.elements)
       return {
-        client : elements[i].clientHeight,
-        offset : elements[i].offsetHeight,
-        scroll : elements[i].scrollHeight
+        client : element.clientHeight,
+        offset : element.offsetHeight,
+        scroll : element.scrollHeight
       }
 
     return {}
-  };
+  }
 
-  this.setScroll = function(point)
+  scroll(point)
   {
-    for(var i in elements)
-    {
-      if('y' in point)
-        elements[i].scrollTop = point.y;
+    return undefined === point
+    ? this.getScroll()
+    : this.setScroll(point)
+  }
 
-      if('x' in point)
-        elements[i].scrollLeft = point.x;
+  getScroll()
+  {
+    for(const element of this.elements)
+    {
+      return {
+        x : element.scrollLeft,
+        y : element.scrollTop
+      }
+    }
+  }
+
+  setScroll(point)
+  {
+    let x, y
+
+    if(typeof point === 'number')
+    {
+      y = point
+    }
+    else
+    {
+      x = point.x
+      y = point.y
+
+      if(false === (Number.isInteger(x) || Number.isInteger(y)))
+      {
+        const error = new Error('Invalid argument: point')
+        error.cause = 'Expected point to be a number or an object with x and/or y properties as numbers'
+        error.code  = 'E_DOM_SET_SCROLL_INVALID_ARGUMENT'
+        throw error
+      }
     }
 
-    return this;
-  };
+    for(const element of this.elements)
+    {
+      Number.isInteger(x) && (element.scrollLeft = x)
+      Number.isInteger(y) && (element.scrollTop  = y)
+    }
 
-  this.setData = function(name, value)
+    return this
+  }
+
+  is(selector)
   {
-    for(var i in elements)
-      elements[i].dataset
-        ? elements[i].dataset[name] = value
-        : elements[i].setAttribute('data-' + name.replace(
-            /([a-zA-Z])(?=[A-Z])/g, '$1-').toLowerCase(), value);
-
-    return this;
-  };
-
-  this.is = function(selector)
-  {
-    if(!elements.length)
-      return false;
+    if(0 === this.elements.length)
+      return false
 
     if(selector instanceof Dom)
-      return selector.get().length == this.get().length
-          && selector.get().every(function(item)
-             {
-               return ~this.get().indexOf(item);
-             }.bind(this));
+      return selector.elements.length === this.elements.length
+          && selector.elements.every(item => this.elements.includes(item))
 
     if(selector instanceof HTMLElement)
-      return ~this.get().indexOf(selector);
+      return this.elements.includes(selector)
 
-    var matches =
-      ( elements[0].matches
-     || elements[0].matchesSelector
-     || elements[0].msMatchesSelector
-     || elements[0].mozMatchesSelector
-     || elements[0].webkitMatchesSelector
-     || elements[0].oMatchesSelector);
+    const match = element => element.matches
+                          ?? element.matchesSelector
+                          ?? element.msMatchesSelector
+                          ?? element.mozMatchesSelector
+                          ?? element.webkitMatchesSelector
+                          ?? element.oMatchesSelector
+                          ?? function() 
+                             {
+                               const error = new Error('Browser does not support element.matches(selector)')
+                               error.cause = 'Expected the browser to support element.matches(selector) to perform selector matching'
+                               error.code  = 'E_DOM_BROWER_UNSUPPORTED'
+                               throw error
+                             }
 
-   for(var i in elements)
-     if(!(matches && matches.call(elements[i], selector)))
-      return false;
+    for(const element of this.elements)
+      if(false === match(element).call(element, selector))
+        return false
 
-    return true;
-  };
+    return true
+  }
 
-  this.filter = function(selector)
+  filter(selector)
   {
-    var filteredElements = [];
+    const filteredElements = []
 
-    for(var i in elements)
-      if(this.from(elements[i]).is(selector))
-        filteredElements.push(elements[i]);
+    for(const element of this.elements)
+      if(this.from(element).is(selector))
+        filteredElements.push(element)
 
-    return this.from(filteredElements);
-  };
+    return this.from(filteredElements)
+  }
 
-  this.exclude = function(selector)
+  toString()
   {
-    var filteredElements = [];
+    let out = ''
 
-    for(var i in elements)
-      if(!this.from(elements[i]).is(selector))
-        filteredElements.push(elements[i]);
+    for(const element of this.elements)
+      out += element.outerHTML
 
-    return this.from(filteredElements);
-  };
+    return out
+  }
+}
 
-  this.toString = function()
-  {
-    var out = '';
-
-    for(var i in elements)
-      out += elements[i].outerHTML;
-
-    return out;
-  };
-})([window.document]);
+const dom = new Dom(window.document)
