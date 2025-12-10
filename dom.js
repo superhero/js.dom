@@ -406,7 +406,16 @@ class Dom
   triggerEvent(eventName)
   {
     for(const element of this.elements)
-      element.dispatchEvent(new Event(eventName, { bubbles: true, composed: true }))
+      element.dispatchEvent(
+        new Event(
+          eventName, 
+          {
+            bubbles     : true,
+            cancelable  : true,
+            composed    : true 
+          }))
+
+    return this
   }
 
   click()
