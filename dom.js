@@ -405,31 +405,8 @@ class Dom
 
   triggerEvent(eventName)
   {
-    let event // The custom event that will be created
-
-    if(document.createEvent)
-    {
-      event = document.createEvent("HTMLEvents")
-      event.initEvent(eventName, true, true)
-    }
-    else
-    {
-      event = document.createEventObject()
-      event.eventType = eventName
-    }
-
-    event.eventName = eventName
-
-    if(document.createEvent)
-    {
-      for(const element of this.elements)
-        element.dispatchEvent(event)
-    }
-    else
-    {
-      for(const element of this.elements)
-        element.fireEvent('on' + event.eventName, event)
-    }
+    for(const element of this.elements)
+      element.dispatchEvent(new Event(eventName, { bubbles: true, composed: true }))
   }
 
   click()
