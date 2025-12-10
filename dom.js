@@ -595,11 +595,11 @@ class Dom
     return !!this.elements.length
   }
 
-  check()
+  check(checked = true)
   {
     for (const element of this.elements)
       if('checked' in element)
-        element.checked = true
+        element.checked = Boolean(checked)
 
     return this
   }
