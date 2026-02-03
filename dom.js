@@ -18,7 +18,7 @@ class Dom
     {
       this.elements = [element]
     }
-    else if(false === !!element)
+    else if(false === Boolean(element))
     {
       const error = new Error('Invalid argument: element is null or undefined')
       error.cause = 'Expected element to be an instance of HTMLElement, NodeList, Array of HTMLElements or Dom'
@@ -49,6 +49,17 @@ class Dom
   from(element)
   {
     return new Dom(element)
+  }
+
+  each(callback)
+  {
+    return this.forEach(callback)
+  }
+
+  forEach(callback)
+  {
+    this.elements.forEach((element, ...attr) => callback(this.from(element), ...attr))
+    return this
   }
 
   find(selector, root)
@@ -114,34 +125,47 @@ class Dom
     return this
   }
 
-  parent(selector, matchThis)
+  * parentWalk(selector, matchThis = false)
   {
-    const walk = element =>
+    function * walk(element)
     {
-      if(false === !!element.parentNode)
-        return false
-
-      return this.from(element.parentNode).is(selector)
-      ? element.parentNode
-      : walk(element.parentNode)
+      for(let item = element; item; item = item.parentElement)
+      {
+        if(new Dom(item).is(selector))
+        {
+          yield item
+        }
+      }
     }
 
+    for(const element of this.elements)
+    {
+      const item = matchThis ? element : element.parentElement
+
+      if(item)
+      {
+        yield * walk(item)
+      }
+    }
+  }
+
+  parent(selector, matchThis = false)
+  {
     const collection = []
 
     for(const element of this.elements)
     {
-      if(false === !!selector)
+      if(false === Boolean(selector))
       {
-        collection.push(element.parentNode)
-      }
-      else if(matchThis && this.is(selector))
-      {
-        collection.push(element)
+        element.parentElement && collection.push(element.parentElement)
       }
       else
       {
-        const parent = walk(element)
-        parent && collection.push(parent)
+        for(const parent of this.from(element).parentWalk(selector, matchThis))
+        {
+          collection.push(parent)
+          break // only the first matching parent of each element is expected
+        }
       }
     }
 
@@ -161,7 +185,7 @@ class Dom
     {
       let sibling
 
-      for(sibling = element.parentNode.firstChild; sibling; sibling = element.nextSibling)
+      for(sibling = element.parentElement.firstChild; sibling; sibling = element.nextSibling)
       {
         if(false === this.elements.includes(sibling))
           if(selector && this.from(sibling).is(selector))
@@ -232,7 +256,7 @@ class Dom
   {
     for(const element of this.elements)
     {
-      if(false === element.parentNode)
+      if(false === element.parentElement)
       {
         const error = new Error('Invalid operation: element has no parent node')
         error.cause = 'Expected the element to have a parent node in order to insert content before it'
@@ -254,7 +278,7 @@ class Dom
   {
     for(const element of this.elements)
     {
-      if(false === element.parentNode)
+      if(false === element.parentElement)
       {
         const error = new Error('Invalid operation: element has no parent node')
         error.cause = 'Expected the element to have a parent node in order to insert content after it'
@@ -568,17 +592,17 @@ class Dom
 
   isChildOf(selector)
   {
-    const walk = element => element.parentNode
-                            ? ( this.from(element.parentNode).is(selector)
+    const walk = element => element.parentElement
+                            ? ( this.from(element.parentElement).is(selector)
                               ? true
-                              : walk.call(this, element.parentNode))
+                              : walk.call(this, element.parentElement))
                             : false
 
     for(const element of this.elements)
       if(false === walk(element)) 
         return false
 
-    return !!this.elements.length
+    return Boolean(this.elements.length)
   }
 
   check(checked = true)
