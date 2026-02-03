@@ -131,20 +131,24 @@ class Dom
     {
       for(let item = element; item; item = item.parentElement)
       {
-        if(new Dom(item).is(selector))
+        item = new Dom(item)
+
+        if(item.is(selector))
         {
           yield item
         }
       }
     }
 
-    for(const element of this.elements)
+    for(let element of this.elements)
     {
-      const item = matchThis ? element : element.parentElement
+      element = matchThis 
+              ? element 
+              : element.parentElement
 
-      if(item)
+      if(element)
       {
-        yield * walk(item)
+        yield * walk(element)
       }
     }
   }
