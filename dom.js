@@ -129,13 +129,13 @@ class Dom
   {
     function * walk(element)
     {
-      for(let item = element; item; item = item.parentElement)
+      for(let cursor = element; cursor; cursor = cursor.parentElement)
       {
-        item = new Dom(item)
+        const $cursor = new Dom(cursor)
 
-        if(item.is(selector))
+        if($cursor.is(selector))
         {
-          yield item
+          yield $cursor
         }
       }
     }
