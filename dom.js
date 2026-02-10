@@ -835,6 +835,11 @@ class Dom
     return this
   }
 
+  has(selector)
+  {
+    return this.select(selector).elements.length > 0
+  }
+
   is(selector)
   {
     if(0 === this.elements.length)
