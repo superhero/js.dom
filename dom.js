@@ -117,10 +117,74 @@ class Dom
       return element.innerHeight
   }
 
-  focus()
+  /**
+   * `options` can be an object (modern signature) or a boolean (legacy).
+   * - `true`  => scroll aligns to `block: 'start'`
+   * - `false` => scroll aligns to `block: 'end'`
+   *
+   * `behavior` controls *how* scrolling happens:
+   * - `'auto'`    : default browser behavior (often instant; may follow CSS `scroll-behavior`)
+   * - `'instant'` : force no animation (immediate jump)
+   * - `'smooth'`  : animate the scroll
+   *
+   * `block` controls vertical alignment (top↕bottom) inside the scroll container:
+   * - `'start'`   : align element’s top edge to container’s top edge
+   * - `'center'`  : center element vertically
+   * - `'end'`     : align element’s bottom edge to container’s bottom edge
+   * - `'nearest'` : scroll the minimum amount needed to make it fully visible
+   *
+   * `inline` controls horizontal alignment (left↔right) the same way as `block`:
+   * - `'start' | 'center' | 'end' | 'nearest'`
+   *
+   * `container` controls *which* scroll containers are allowed to scroll:
+   * - `'all'`     : scroll all relevant ancestors (and viewport) as needed
+   * - `'nearest'` : only scroll the nearest scrollable ancestor
+   *
+   * @param {object|boolean} [options]
+   * @param {'auto'|'instant'|'smooth'} [options.behavior='auto']
+   * @param {'start'|'center'|'end'|'nearest'} [options.block] Defaults to `'end'` when `options` is falsy, otherwise `'start'`.
+   * @param {'start'|'center'|'end'|'nearest'} [options.inline='nearest']
+   * @param {'all'|'nearest'} [options.container='all']
+   * @returns {this}
+   */
+  scrollIntoView(options)
   {
+    let { behavior, block, inline, container } = options || {}
+
+    behavior  ??= 'auto'
+    block     ??= options ? 'start' : 'end'
+    inline    ??= 'nearest'
+    container ??= 'all'
+
     for(const element of this.elements)
-      element.focus()
+      element.scrollIntoView({ behavior, block, inline, container })
+
+    return this
+  }
+
+  /**
+   * `preventScroll` controls whether focusing is allowed to scroll the page:
+   * - `false` (default): browser may scroll the element into view on focus
+   * - `true`           : focus without scrolling (useful to avoid “jumping”)
+   *
+   * `focusVisible` controls whether the UA should show the “keyboard focus ring” style:
+   * - `false` (default): normal UA heuristics (often depends on last input type)
+   * - `true`           : try to force focus to be treated as “:focus-visible”
+   *
+   * @param {object} [options]
+   * @param {boolean} [options.preventScroll=false]
+   * @param {boolean} [options.focusVisible=false]
+   * @returns {this}
+   */
+  focus(options)
+  {
+    let { preventScroll, focusVisible } = options || {}
+
+    preventScroll ??= Boolean(preventScroll)
+    focusVisible  ??= Boolean(focusVisible)
+
+    for(const element of this.elements)
+      element.focus({ preventScroll, focusVisible })
 
     return this
   }
