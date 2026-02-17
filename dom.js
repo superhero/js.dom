@@ -807,6 +807,17 @@ class Dom
     }
   }
 
+  /**
+   * The `length` property returns the number of elements in the collection.
+   * If the collection is empty, it returns `0`.
+   *
+   * @returns {number}
+   */
+  get length()
+  {
+    return this.elements.length
+  }
+
   size()
   {
     const 
